@@ -1,11 +1,23 @@
 'use strict';
 
+var banner = '(function (root, factory) {\n' +
+             '    if (typeof define === \'function\' && define.amd) {\n' +
+             '        // AMD.\n' +
+             '        define([\'ol\'], function (ol) {\n' +
+             '            return root.angularOpenlayersDirective = factory(ol);\n' +
+             '        });\n' +
+             '    } else {\n' +
+             '        // Browser globals\n' +
+             '        root.angularOpenlayersDirective = factory(root.ol);\n' +
+             '    }\n' +
+             '}(this, function (ol) {\n';
+
 module.exports = function (grunt, options) {
     return {
         dist: {
             options: {
-                banner: '(function() {\n\n"use strict";\n\n',
-                footer: '\n}());'
+                banner: banner,
+                footer: '\n}));'
             },
             src: [
                 'src/directives/openlayers.js',
