@@ -44,6 +44,10 @@ angular.module('openlayers-directive').factory('olHelpers', function($q, $log, $
 
     var mapQuestLayers = ['osm', 'sat', 'hyb'];
 
+    var esriBaseLayers = ['World_Imagery', 'World_Street_Map', 'World_Topo_Map',
+                          'World_Physical_Map', 'World_Terrain_Base',
+                          'Ocean_Basemap', 'NatGeo_World_Map'];
+
     var styleMap = {
         'style': ol.style.Style,
         'fill': ol.style.Fill,
@@ -115,7 +119,12 @@ angular.module('openlayers-directive').factory('olHelpers', function($q, $log, $
                     return optionalFactory(styleObject, valConstructor);
                 } else {
                     styleObject[val] = recursiveStyle(style, val);
-                    styleObject[val] = optionalFactory(styleObject[val], styleMap[val]);
+
+                    // if the value is 'text' and it contains a String, then it should be interpreted
+                    // as such, 'cause the text style might effectively contain a text to display
+                    if(val !== 'text' && typeof styleObject[val] !== 'string') {
+                       styleObject[val] = optionalFactory(styleObject[val], styleMap[val]);
+                    }
                 }
             });
         } else {
@@ -229,6 +238,38 @@ angular.module('openlayers-directive').factory('olHelpers', function($q, $log, $
 
                 oSource = new ol.source.TileWMS(wmsConfiguration);
                 break;
+
+            case 'WMTS':
+                if ((!source.url && !source.urls) || !source.tileGrid) {
+                    $log.error('[AngularJS - Openlayers] - WMTS Layer needs valid url ' +
+                               '(or urls) and tileGrid properties');
+                }
+
+                var wmtsConfiguration = {
+                    projection: projection,
+                    layer: source.layer,
+                    matrixSet: (source.matrixSet === 'undefined') ? projection : source.matrixSet,
+                    format: (source.format === 'undefined') ? 'image/jpeg' : source.format,
+                    requestEncoding: (source.requestEncoding === 'undefined') ?
+                        'KVP' : source.requestEncoding,
+                    tileGrid: new ol.tilegrid.WMTS({
+                        origin: source.tileGrid.origin,
+                        resolutions: source.tileGrid.resolutions,
+                        matrixIds: source.tileGrid.matrixIds
+                    })
+                };
+
+                if (isDefined(source.url)) {
+                    wmtsConfiguration.url = source.url;
+                }
+
+                if (isDefined(source.urls)) {
+                    wmtsConfiguration.urls = source.urls;
+                }
+
+                oSource = new ol.source.WMTS(wmtsConfiguration);
+                break;
+
             case 'OSM':
                 if (source.attribution) {
                     var attributions = [];
@@ -274,6 +315,19 @@ angular.module('openlayers-directive').factory('olHelpers', function($q, $log, $
                 oSource = new ol.source.MapQuest({
                     layer: source.layer
                 });
+
+                break;
+
+            case 'EsriBaseMaps':
+                if (!source.layer || esriBaseLayers.indexOf(source.layer) === -1) {
+                    $log.error('[AngularJS - Openlayers] - ESRI layers needs a valid \'layer\' property.');
+                    return;
+                }
+
+                var _urlBase = 'http://services.arcgisonline.com/ArcGIS/rest/services/';
+                var _url = _urlBase + source.layer + '/MapServer/tile/{z}/{y}/{x}';
+
+                oSource = new ol.source.XYZ({ url: _url });
 
                 break;
 
@@ -594,8 +648,9 @@ angular.module('openlayers-directive').factory('olHelpers', function($q, $log, $
                 angular.forEach(events.layers, function(eventType) {
                     angular.element(map.getViewport()).on(eventType, function(evt) {
                         var pixel = map.getEventPixel(evt);
-                        var feature = map.forEachFeatureAtPixel(pixel, function(feature) {
-                            return feature;
+                        var feature = map.forEachFeatureAtPixel(pixel, function(feature, olLayer) {
+                            // only return the feature if it is in this layer (based on the name)
+                            return (olLayer.get('name') === layerName) ? feature : null;
                         });
                         if (isDefined(feature)) {
                             scope.$emit('openlayers.layers.' + layerName + '.' + eventType, feature, evt);

@@ -50,7 +50,7 @@ angular.module('openlayers-directive').directive('olLayer', function($log, $q, o
                     return;
                 }
 
-                scope.$watchCollection('properties', function(properties, oldProperties) {
+                scope.$watch('properties', function(properties, oldProperties) {
                     if (!isDefined(properties.source) || !isDefined(properties.source.type)) {
                         return;
                     }
@@ -100,46 +100,61 @@ angular.module('openlayers-directive').directive('olLayer', function($log, $q, o
                         }
 
                     } else {
+                        var isNewLayer = (function(olLayer) {
+                            // this function can be used to verify whether a new layer instance has
+                            // been created. This is needed in order to re-assign styles, opacity
+                            // etc...
+                            return function(layer) {
+                                return layer !== olLayer;
+                            };
+                        })(olLayer);
 
+                        // set source properties
+                        if (isDefined(oldProperties) && !equals(properties.source, oldProperties.source)) {
+                            var idx = olLayer.index;
+                            layerCollection.removeAt(idx);
+
+                            olLayer = createLayer(properties, projection);
+
+                            if (isDefined(olLayer)) {
+                                insertLayer(layerCollection, idx, olLayer);
+
+                                if (detectLayerType(properties) === 'Vector') {
+                                    setVectorLayerEvents(defaults.events, map, scope, properties.name);
+                                }
+                            }
+                        }
+
+                        // set opacity
                         if (isDefined(oldProperties) &&
-                           !(equals(properties, oldProperties) && equals(properties.style, oldProperties.style))) {
-
-                            if (!equals(properties.source, oldProperties.source)) {
-                                var idx = olLayer.index;
-                                layerCollection.removeAt(idx);
-                                olLayer = createLayer(properties, projection);
-                                if (isDefined(olLayer)) {
-                                    insertLayer(layerCollection, idx, olLayer);
-
-                                    if (detectLayerType(properties) === 'Vector') {
-                                        setVectorLayerEvents(defaults.events, map, scope, properties.name);
-                                    }
-                                }
+                            properties.opacity !== oldProperties.opacity || isNewLayer(olLayer)) {
+                            if (isNumber(properties.opacity) || isNumber(parseFloat(properties.opacity))) {
+                                olLayer.setOpacity(properties.opacity);
                             }
+                        }
 
-                            if (isDefined(properties.index) && properties.index !== olLayer.index) {
-                                removeLayer(layerCollection, olLayer.index);
-                                insertLayer(layerCollection, properties.index, olLayer);
-                            }
+                        // set index
+                        if (isDefined(properties.index) && properties.index !== olLayer.index) {
+                            removeLayer(layerCollection, olLayer.index);
+                            insertLayer(layerCollection, properties.index, olLayer);
+                        }
 
-                            if (isBoolean(properties.visible) && properties.visible !== oldProperties.visible) {
-                                olLayer.setVisible(properties.visible);
-                            }
+                        // set visibility
+                        if (isDefined(oldProperties) &&
+                            isBoolean(properties.visible) &&
+                            properties.visible !== oldProperties.visible || isNewLayer(olLayer)) {
+                            olLayer.setVisible(properties.visible);
+                        }
 
-                            if (properties.opacity !== oldProperties.opacity) {
-                                if (isNumber(properties.opacity) || isNumber(parseFloat(properties.opacity))) {
-                                    olLayer.setOpacity(properties.opacity);
-                                }
+                        // set style
+                        if (isDefined(properties.style) &&
+                            !equals(properties.style, oldProperties.style) || isNewLayer(olLayer)) {
+                            if (!angular.isFunction(properties.style)) {
+                                style = createStyle(properties.style);
+                            } else {
+                                style = properties.style;
                             }
-
-                            if (isDefined(properties.style) && !equals(properties.style, oldProperties.style)) {
-                                if (!angular.isFunction(properties.style)) {
-                                    style = createStyle(properties.style);
-                                } else {
-                                    style = properties.style;
-                                }
-                                olLayer.setStyle(style);
-                            }
+                            olLayer.setStyle(style);
                         }
                     }
                 }, true);
