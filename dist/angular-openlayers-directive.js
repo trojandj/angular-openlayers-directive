@@ -1025,6 +1025,10 @@ angular.module('openlayers-directive').factory('olHelpers', ["$q", "$log", "$htt
         return angular.isDefined(value);
     };
 
+    var isDefinedAndNotNull = function(value){
+        return angular.isDefined(value) && value !== null;
+    };
+
     var setEvent = function(map, eventType, scope) {
         map.on(eventType, function(event) {
             var coord = event.coordinate;
@@ -1568,9 +1572,7 @@ angular.module('openlayers-directive').factory('olHelpers', ["$q", "$log", "$htt
         },
 
         // Determine if a reference is defined and not null
-        isDefinedAndNotNull: function(value) {
-            return angular.isDefined(value) && value !== null;
-        },
+        isDefinedAndNotNull: isDefinedAndNotNull,
 
         // Determine if a reference is a string
         isString: function(value) {
@@ -1697,9 +1699,9 @@ angular.module('openlayers-directive').factory('olHelpers', ["$q", "$log", "$htt
                         var pixel = map.getEventPixel(evt);
                         var feature = map.forEachFeatureAtPixel(pixel, function(feature, olLayer) {
                             // only return the feature if it is in this layer (based on the name)
-                            return (olLayer.get('name') === layerName) ? feature : null;
+                            return (isDefinedAndNotNull(olLayer) && olLayer.get('name') === layerName) ? feature : null;
                         });
-                        if (isDefined(feature)) {
+                        if (isDefinedAndNotNull(feature)) {
                             scope.$emit('openlayers.layers.' + layerName + '.' + eventType, feature, evt);
                         }
                     });
@@ -1707,11 +1709,11 @@ angular.module('openlayers-directive').factory('olHelpers', ["$q", "$log", "$htt
             }
         },
 
-        setViewEvents: function (events, map, scope) {
+        setViewEvents: function(events, map, scope) {
             if (isDefined(events) && angular.isArray(events.view)) {
                 var view = map.getView();
-                angular.forEach(events.view, function(eventType){
-                    view.on(eventType, function (event) {
+                angular.forEach(events.view, function(eventType) {
+                    view.on(eventType, function(event) {
                         scope.$emit('openlayers.view.' + eventType, view, event);
                     });
                 });
