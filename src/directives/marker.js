@@ -389,20 +389,21 @@ angular.module('openlayers-directive').directive('olMarker', function($log, $q, 
                         label = undefined;
                     }
 
-                    var timeout, lastEvent;
+                    var timeout;
+                    var lastEvent;
 
                     // Then setup new ones according to properties
                     if (properties.label && properties.label.show === false &&
                         properties.label.showOnMouseOver) {
-                        map.getViewport().addEventListener('mousemove', function(evt){
-                            if(timeout){
-                                timeout && (lastEvent = evt);
+                        map.getViewport().addEventListener('mousemove', function(evt) {
+                            if (timeout) {
+                                (lastEvent = evt);
                                 return;
                             }
 
                             timeout = setTimeout(function() {
                                 timeout = null;
-                                properties.handleInteraction(lastEvent)
+                                properties.handleInteraction(lastEvent);
                             }, 100);
                         });
                     }
